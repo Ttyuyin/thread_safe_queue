@@ -4,16 +4,44 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
-/* 测试结果统计 */
+/* 测试结果统计：同时记录每条结果，最后汇总输出 */
 int g_pass = 0;
 int g_fail = 0;
 
-/* 宏：方便输出测试结果 */
-#define TEST(name) printf("  TEST %-28s ", name)
+#define MAX_TESTS 64
 
-/* 注意：这里故意不用 do-while，因为在 if-else 里用的时候外面加了 {} */
-#define PASS() g_pass++; printf("PASS\n")
-#define FAIL(msg) g_fail++; printf("FAIL: %s\n", msg)
+/* 一条测试记录 */
+typedef struct {
+    const char *name;   /* 测试名（指针，TEST 传进来的字符串常量） */
+    int passed;         /* 1 = 通过, 0 = 失败 */
+} TestRecord;
+
+TestRecord g_records[MAX_TESTS];
+int g_test_count = 0;
+
+/* 当前正在跑的测试名字，由 TEST 设置，PASS/FAIL 读取 */
+const char *g_current_test = NULL;
+
+/* 宏：记录测试名并输出 */
+#define TEST(name)                                   \
+    g_current_test = name;                            \
+    printf("  TEST %-28s ", name)
+
+/* 宏：记录通过 */
+#define PASS()                                       \
+    g_records[g_test_count].name   = g_current_test;  \
+    g_records[g_test_count].passed = 1;               \
+    g_test_count++;                                   \
+    g_pass++;                                         \
+    printf("PASS\n")
+
+/* 宏：记录失败 */
+#define FAIL(msg)                                    \
+    g_records[g_test_count].name   = g_current_test;  \
+    g_records[g_test_count].passed = 0;               \
+    g_test_count++;                                   \
+    g_fail++;                                         \
+    printf("FAIL: %s\n", msg)
 
 /* =========================================================
  *  一、单线程功能测试
@@ -636,6 +664,14 @@ int main(void) {
     printf("   结果: %d 通过, %d 失败  %s\n",
            g_pass, g_fail,
            g_fail > 0 ? "SOME FAILED" : "全部通过");
+
+    /* 详细清单（方便在刷屏之后查看） */
+    printf("\n--- 测试详细清单 ---\n");
+    for (int i = 0; i < g_test_count; i++) {
+        printf("  [%s] %s\n",
+               g_records[i].passed ? "PASS" : "FAIL",
+               g_records[i].name);
+    }
     printf("========================================\n");
 
     if (g_fail > 0) {
