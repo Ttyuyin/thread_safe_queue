@@ -187,6 +187,14 @@ void test_QueueSize(void) {
 void test_Contains(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
+
+    TEST("Contains 空队列");
+    if (Contains(&q, 10) == 0) {
+        PASS();
+    } else {
+        FAIL("应返回 0");
+    }
+
     EnQueue(&q, 10);
     EnQueue(&q, 20);
     EnQueue(&q, 30);
@@ -206,25 +214,22 @@ void test_Contains(void) {
     } else {
         FAIL("应返回 0");
     }
-
-    /* 空队列找 */
-    ThreadSafeQueue empty;
-    InitQueue(&empty);
-    TEST("Contains 空队列");
-    if (Contains(&empty, 10) == 0) {
-        PASS();
-    } else {
-        FAIL("应返回 0");
-    }
-
     DestroyQueue(&q);
-    DestroyQueue(&empty);
+
 }
 
 /* ---------- Find ---------- */
 void test_Find(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
+
+    TEST("Find 空队列");
+    if (Find(&q, 10) == NULL) {
+        PASS();
+    } else {
+        FAIL("应返回 NULL");
+    }
+
     EnQueue(&q, 10);
     EnQueue(&q, 20);
     EnQueue(&q, 30);
@@ -246,18 +251,7 @@ void test_Find(void) {
         FAIL("应返回 NULL");
     }
 
-    /* 空队列找 */
-    ThreadSafeQueue empty;
-    InitQueue(&empty);
-    TEST("Find 空队列");
-    if (Find(&empty, 10) == NULL) {
-        PASS();
-    } else {
-        FAIL("应返回 NULL");
-    }
-
     DestroyQueue(&q);
-    DestroyQueue(&empty);
 }
 
 /* ---------- Print ---------- */
