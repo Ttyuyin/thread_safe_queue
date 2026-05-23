@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 /* 测试结果统计：同时记录每条结果，最后汇总输出 */
 int g_pass = 0;
@@ -560,9 +561,9 @@ void *consumer_routine(void *arg) {
  * 所有数据出队后 head/tail 应该是 NULL，size 应该是 0
  */
 int check_final_state(ThreadSafeQueue *q) {
-    pthread_mutex_lock(&q->lock);
+    pthread_rwlock_rdlock(&q->lock);
     int ok = (q->head == NULL && q->tail == NULL && q->size == 0);
-    pthread_mutex_unlock(&q->lock);
+    pthread_rwlock_unlock(&q->lock);
     return ok;
 }
 

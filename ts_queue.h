@@ -13,7 +13,7 @@ typedef struct ThreadSafeQueue {
     QueueNode *head;         
     QueueNode *tail;         
     size_t size;             
-    pthread_mutex_t lock;
+    pthread_rwlock_t lock;
 } ThreadSafeQueue;
 
 int InitQueue(ThreadSafeQueue *q);

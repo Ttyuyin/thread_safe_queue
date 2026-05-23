@@ -10,7 +10,8 @@
       "Bash(gcc -std=c11 -O2 -Wall -Wextra -pedantic -pthread test_queue.c ts_queue.c -o test_queue)",
       "Bash(gcc -std=c11 -O2 -Wall -Wextra -pedantic -pthread pressure_test.c ts_queue.c -o pressure_test.exe)",
       "Bash(./pressure_test.exe)",
-      "Bash(taskkill /f /im pressure_test.exe)"
+      "Bash(taskkill /f /im pressure_test.exe)",
+      "Bash(gcc *)"
     ]
   }
 }
