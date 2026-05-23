@@ -10,9 +10,9 @@ typedef struct QueueNode {
 } QueueNode;
 
 typedef struct ThreadSafeQueue {
-    QueueNode *head;         
-    QueueNode *tail;         
-    size_t size;             
+    QueueNode *head;
+    QueueNode *tail;
+    size_t size;
     pthread_rwlock_t lock;
 } ThreadSafeQueue;
 

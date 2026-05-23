@@ -24,10 +24,10 @@ int EnQueue(ThreadSafeQueue *q, int value) {
 
     pthread_rwlock_wrlock(&q->lock);
 
-    if (q->tail == NULL) {       
+    if (q->tail == NULL) {
         q->head = node;
         q->tail = node;
-    } else {                         
+    } else {
         q->tail->next = node;
         q->tail = node;
     }
@@ -43,13 +43,13 @@ int DeQueue(ThreadSafeQueue *q, int *out_value) {
     pthread_rwlock_wrlock(&q->lock);
 
     QueueNode *node = q->head;
-    if (node == NULL) {              
+    if (node == NULL) {
         pthread_rwlock_unlock(&q->lock);
         return -1;
     }
 
-    q->head = node->next;          
-    if (q->head == NULL) {          
+    q->head = node->next;
+    if (q->head == NULL) {
         q->tail = NULL;
     }
     q->size--;
@@ -59,7 +59,7 @@ int DeQueue(ThreadSafeQueue *q, int *out_value) {
     if (out_value != NULL)
         *out_value = node->data;
 
-    free(node);                    
+    free(node);
     return 0;
 }
 
@@ -103,8 +103,8 @@ QueueNode *Find(ThreadSafeQueue *q, int value) {
 
     pthread_rwlock_rdlock(&q->lock);
 
-    for(QueueNode *cur = q->head;cur!=NULL;cur=cur->next){
-        if(cur->data == value){
+    for (QueueNode *cur = q->head; cur != NULL; cur = cur->next) {
+        if (cur->data == value) {
             pthread_rwlock_unlock(&q->lock);
             return cur;
         }
