@@ -103,13 +103,11 @@ QueueNode *Find(ThreadSafeQueue *q, int value) {
 
     pthread_rwlock_rdlock(&q->lock);
 
-    QueueNode *cur = q->head;
-    while (cur != NULL) {
-        if (cur->data == value) {
+    for(QueueNode *cur = q->head;cur!=NULL;cur=cur->next){
+        if(cur->data == value){
             pthread_rwlock_unlock(&q->lock);
             return cur;
         }
-        cur = cur->next;
     }
 
     pthread_rwlock_unlock(&q->lock);
