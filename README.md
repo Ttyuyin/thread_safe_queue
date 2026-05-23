@@ -1,16 +1,14 @@
 # 线程安全队列（Thread-Safe Queue）
 
-基于单链表的线程安全队列，使用 `pthread_mutex_t` 实现互斥锁保护。
+基于单链表的线程安全队列，使用 **读者-写者锁（`pthread_rwlock_t`）** 实现读写并发控制。
+
+相比互斥锁，读写锁允许多个读线程同时访问，只在写操作时互斥，在多读少写的场景下并发性能更高。
 
 ## 线程安全原理
 
-### 什么是线程安全？
-
-一个数据结构是**线程安全**的，当多个线程同时操作它时，无论操作系统如何调度，数据结构的内部状态始终保持一致，不会出现数据丢失、重复、脏读等异常。
-
 ### 不加锁会怎样？
 
-以 `list.cpp` 为例，两个线程同时向链表尾部追加结点，**不加锁**：
+以 `说明/list.cpp` 为例，两个线程同时向链表尾部追加结点，**不加锁**：
 
 ```
 线程A: if (tail == NULL) → true
@@ -29,99 +27,109 @@ DeQueue 同理：
 线程B: free(X)  → double-free，崩溃！
 ```
 
-### 加锁如何解决？
+### 读写锁策略
 
-一把 `pthread_mutex_t`，保护所有共享状态（head、tail、size、next 指针）：
+使用 `pthread_rwlock_t` 代替互斥锁，区分读/写操作，允许多个读线程并发执行：
 
 ```
-黄金法则：lock → 访问/修改共享数据 → unlock
+黄金法则：
+  写操作 → wrlock → 修改共享数据 → unlock
+  读操作 → rdlock → 读取共享数据 → unlock
 ```
 
-| 操作 | 流程 |
-|------|------|
-| EnQueue | `lock` → 修改 tail → `unlock` |
-| DeQueue | `lock` → 修改 head → `unlock` → free |
-| Clear | `lock` → 摘除整个链表 → `unlock` → 逐个 free |
-| Find | `lock` → 遍历 → `unlock` |
-| Print | `lock` → 遍历打印 → `unlock` |
-| QueueSize | `lock` → 读 size → `unlock` |
+| 操作 | 锁类型 | 流程 |
+|------|--------|------|
+| EnQueue | **写锁** | `wrlock` → 修改 tail → `unlock` |
+| DeQueue | **写锁** | `wrlock` → 修改 head → `unlock` → free |
+| Clear | **写锁** | `wrlock` → 摘除整个链表 → `unlock` → 逐个 free |
+| Contains | **读锁** | `rdlock` → 遍历 → `unlock` |
+| Find | **读锁** | `rdlock` → 遍历查找 → `unlock` |
+| Print | **读锁** | `rdlock` → 遍历打印 → `unlock` |
+| QueueSize | **读锁** | `rdlock` → 读 size → `unlock` |
 
 ### 如何验证线程安全？
 
-测试程序的核心验证公式：
+测试程序的核心验证：**最终队列状态一致**。
 
-```
-final_size == initial_nodes + enq_total - deq_total
-```
+压力测试启动 4 个生产者 + 4 个消费者并发操作百万级数据，结束后验证：
 
-- `enq_total` = 所有线程成功入队次数之和
-- `deq_total` = 所有线程成功出队次数之和
-
-如果锁有缺陷，多线程并发修改 size/head/tail 会导致**计数与实际结点数不一致**：
-- 两个线程同时 EnQueue，size 只加 1 → size < 实际结点数
-- DeQueue 推进 head 出错，结点留在链表中但 size 已减 → size < 实际结点数
-
-公式不成立 → **线程不安全，锁没保护住临界资源**。
-
-## 验证方法
-
-```
-./test_queue              跑全部 3 种场景，自动 PASS/FAIL
-./test_queue rr 8 1000 100  跑单场景 + 自定义参数
-```
-
-### 测试场景
-
-| 场景 | 操作比例 | 测试目标 |
-|------|---------|---------|
-| **READ-READ** | 100% Find | 多线程并发遍历不崩溃 |
-| **WRITE-WRITE** | 50% EnQueue + 50% DeQueue | 高压写竞争，最容易触发 race |
-| **READ-WRITE** | 60% Find + 20% EnQueue + 20% DeQueue | 真实混合负载 |
-
-## 测试结果
-
-### 完整自动化套件
-
-```
-========================================
-  Thread-Safe Queue  -  Automated Test
-  Lock: pthread_mutex_t
-========================================
-
---- Test 1/3: READ-READ ---
-[READ-READ]  4 threads x 500000 loops, init=1000
-  find=2000000  enq=0  deq=0
-  size=1000  expected=1000  ==>  PASS
-
---- Test 2/3: WRITE-WRITE ---
-[WRITE-WRITE]  4 threads x 200000 loops, init=10000
-  find=0  enq=399960  deq=400040
-  size=9920  expected=9920  ==>  PASS
-
---- Test 3/3: READ-WRITE ---
-[READ-WRITE]  4 threads x 200000 loops, init=10000
-  find=480360  enq=159308  deq=160332
-  size=8976  expected=8976  ==>  PASS
-
-========================================
-  Result: 3/3 passed  >>> ALL TESTS PASSED <<<
-========================================
-```
+- 总入队数 == 总出队数 == TOTAL_ITEMS
+- 队列 size == 0，head/tail == NULL
+- 并发读写测试中不崩溃、不死锁
 
 ## 文件说明
 
-- `ts_queue.h` / `ts_queue.c` — 线程安全队列实现（mutex 保护）
-- `test_queue.c` — 自动化多线程压力测试
-- `说明/list.cpp` — 不加锁的链表（对照实验，演示竞态条件）
-- `说明/reqiured.txt` — 课设要求
-- `说明/什么是线程安全的链表-队列-栈.doc` — 课设说明文档
+- `ts_queue.h` / `ts_queue.c` — 线程安全队列实现（读写锁保护）
+- `pressure_test.c` — 综合测试：单线程功能测试 + 多线程并发测试 + 压力测试
 - `Makefile` — 编译脚本
+- `说明/` — 课程设计文档
+  - `list.cpp` — 不加锁的链表（对照实验，演示竞态条件）
+  - `reqiured.txt` — 课设要求
+  - `什么是线程安全的链表-队列-栈.doc` — 课设说明文档
 
 ## 编译
 
 ```sh
-gcc -std=c11 -O2 -Wall -Wextra -pedantic -pthread ts_queue.c test_queue.c -o test_queue
-make           # or just 'make'
-make run       # run full test suite
-make run-ww    # run write-only test only
+make            # 编译
+make run        # 编译并运行全部测试
+make clean      # 清理二进制文件
+```
+
+或手动编译：
+
+```sh
+gcc -std=c11 -O2 -Wall -Wextra -pedantic -pthread pressure_test.c ts_queue.c -o pressure_test
+```
+
+## 测试结果
+
+```
+========================================
+   ThreadSafeQueue 综合测试
+========================================
+
+--- 单线程功能测试 ---
+  TEST InitQueue                    PASS
+  TEST EnQueue 单个元素             PASS
+  TEST EnQueue 三个元素 size        PASS
+  TEST EnQueue FIFO 顺序            PASS
+  TEST DeQueue 空队列               PASS
+  TEST DeQueue 单个元素             PASS
+  TEST DeQueue 取到空               PASS
+  TEST QueueSize 空队列             PASS
+  TEST QueueSize 入队两个           PASS
+  TEST QueueSize 出队一个           PASS
+  TEST Contains 值存在              PASS
+  TEST Contains 值不存在            PASS
+  TEST Contains 空队列              PASS
+  TEST Find 值存在                  PASS
+  TEST Find 值不存在                PASS
+  TEST Find 空队列                  PASS
+  TEST Print 空队列                 PASS
+  TEST Print 非空队列 (FIFO)        PASS
+  TEST Clear 清空                   PASS
+  TEST Clear 连续两次               PASS
+  TEST DestroyQueue 空队列          PASS
+  TEST DestroyQueue 单元素          PASS
+  TEST DestroyQueue 多元素          PASS
+  TEST EnQueue(NULL, 0)             PASS
+  TEST DeQueue(NULL, NULL)          PASS
+  TEST Clear(NULL)                  PASS
+  TEST Contains(NULL, 0)            PASS
+  TEST Find(NULL, 0)                PASS
+  TEST QueueSize(NULL)              PASS
+  TEST Print(NULL)                  PASS
+  TEST DestroyQueue(NULL)           PASS
+
+--- 多线程并发测试 ---
+  [ 读写并发: 3 readers + 2 writers(500000) + 1 clearer ]
+  TEST 读写并发（不崩溃、不死锁）    PASS
+
+--- 压力测试 ---
+  [ 压力测试: 4 生产者 x 500000 = 2000000 入队, 4 消费者 ]
+  TEST 压力测试                      PASS
+
+========================================
+   结果: 33 通过, 0 失败  全部通过
+========================================
 ```
