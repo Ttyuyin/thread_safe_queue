@@ -10,6 +10,7 @@ int g_fail = 0;
 
 #define MAX_TESTS 64
 
+//记录PASS？数据统一展示
 typedef struct {
     const char *name;
     int passed;
@@ -38,6 +39,7 @@ const char *g_current_test = NULL;
     g_fail++;                                         \
     printf("FAIL: %s\n", msg)
 
+//初始化队列测试
 void test_InitQueue(void) {
     ThreadSafeQueue q;
 
@@ -53,6 +55,7 @@ void test_InitQueue(void) {
     DestroyQueue(&q);
 }
 
+//入队测试
 void test_EnQueue(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -88,6 +91,7 @@ void test_EnQueue(void) {
     DestroyQueue(&q);
 }
 
+//出队操作测试
 void test_DeQueue(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -127,6 +131,7 @@ void test_DeQueue(void) {
     DestroyQueue(&q);
 }
 
+//测试求队列长度
 void test_QueueSize(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -159,6 +164,7 @@ void test_QueueSize(void) {
     DestroyQueue(&q);
 }
 
+//测试是否存在谋数据
 void test_Contains(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -191,6 +197,7 @@ void test_Contains(void) {
 
 }
 
+//测试是否存在谋数据
 void test_Find(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -224,6 +231,7 @@ void test_Find(void) {
     DestroyQueue(&q);
 }
 
+//测试打印函数
 void test_Print(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -246,6 +254,7 @@ void test_Print(void) {
     DestroyQueue(&q);
 }
 
+//测试清空队列
 void test_Clear(void) {
     ThreadSafeQueue q;
     InitQueue(&q);
@@ -272,6 +281,7 @@ void test_Clear(void) {
     DestroyQueue(&q);
 }
 
+//测试销毁队列
 void test_DestroyQueue(void) {
     ThreadSafeQueue q;
 
@@ -295,6 +305,7 @@ void test_DestroyQueue(void) {
     PASS();
 }
 
+//测试为空的特殊情况
 void test_NULL(void) {
     TEST("EnQueue(NULL, 0)");    EnQueue(NULL, 0);      PASS();
     TEST("DeQueue(NULL, NULL)"); DeQueue(NULL, NULL);   PASS();
@@ -325,8 +336,11 @@ void test_NULL(void) {
     TEST("DestroyQueue(NULL)"); DestroyQueue(NULL);      PASS();
 }
 
+
+//读写线程测试，g_stop=0用于控制读写的循环暂停
 int g_stop = 0;
 
+//读进程随机进行
 void *reader_thread(void *arg) {
     ThreadSafeQueue *q = (ThreadSafeQueue *)arg;
     unsigned seed = (unsigned)(uintptr_t)pthread_self();
@@ -348,8 +362,9 @@ void *reader_thread(void *arg) {
     return NULL;
 }
 
-#define WRITER_OPS 500000
+#define WRITER_OPS 1000000
 
+//写进程出入队列测试
 void *writer_thread(void *arg) {
     ThreadSafeQueue *q = (ThreadSafeQueue *)arg;
     unsigned seed = (unsigned)(uintptr_t)pthread_self();
@@ -364,6 +379,7 @@ void *writer_thread(void *arg) {
 
 #define CLEAR_INTERVAL 5000
 
+//进一步测试，在出入队时候加入突然清空
 void *clearer_thread(void *arg) {
     ThreadSafeQueue *q = (ThreadSafeQueue *)arg;
     unsigned seed = (unsigned)(uintptr_t)pthread_self();
@@ -382,6 +398,7 @@ void *clearer_thread(void *arg) {
     return NULL;
 }
 
+//读写进程混合测试
 void test_ConcurrentReadWrite(void) {
     ThreadSafeQueue q;
     pthread_t readers[3], writers[2], clearer;
@@ -420,7 +437,7 @@ void test_ConcurrentReadWrite(void) {
     while (DeQueue(&q, &val) == 0) {
     }
 
-    TEST("读写并发（不崩溃、不死锁）");
+    TEST("读写并发");
     if (q.size == 0 && q.head == NULL && q.tail == NULL) {
         PASS();
     } else {
@@ -430,10 +447,10 @@ void test_ConcurrentReadWrite(void) {
     DestroyQueue(&q);
 }
 
-#define PRODUCERS          4
-#define CONSUMERS          4
+#define PRODUCERS 4
+#define CONSUMERS 4
 #define ITEMS_PER_PRODUCER  500000
-#define TOTAL_ITEMS        (PRODUCERS * ITEMS_PER_PRODUCER)
+#define TOTAL_ITEMS (PRODUCERS * ITEMS_PER_PRODUCER)
 
 atomic_long g_total_enq;
 atomic_long g_total_deq;
@@ -443,6 +460,7 @@ typedef struct {
     int id;
 } ProducerArg;
 
+//生产者线程
 void *producer_routine(void *arg) {
     ProducerArg *pa = (ProducerArg *)arg;
     long start = (long)pa->id * ITEMS_PER_PRODUCER;
@@ -455,6 +473,7 @@ void *producer_routine(void *arg) {
     return NULL;
 }
 
+//消费者线程
 void *consumer_routine(void *arg) {
     ThreadSafeQueue *q = (ThreadSafeQueue *)arg;
     int val;
@@ -467,6 +486,7 @@ void *consumer_routine(void *arg) {
     return NULL;
 }
 
+//检查合法非法
 int check_final_state(ThreadSafeQueue *q) {
     pthread_rwlock_rdlock(&q->lock);
     int ok = (q->head == NULL && q->tail == NULL && q->size == 0);
@@ -474,6 +494,7 @@ int check_final_state(ThreadSafeQueue *q) {
     return ok;
 }
 
+//进行混合压力测试
 void test_Stress(void) {
     ThreadSafeQueue queue;
     pthread_t producers[PRODUCERS];
@@ -533,11 +554,10 @@ void test_Stress(void) {
 }
 
 int main(void) {
-    printf("========================================\n");
-    printf("   ThreadSafeQueue 综合测试\n");
-    printf("========================================\n\n");
 
-    printf("--- 单线程功能测试 ---\n");
+    printf("ThreadSafeQueue 综合测试\n");
+
+    printf("单线程功能测试\n");
     test_InitQueue();
     test_EnQueue();
     test_DeQueue();
@@ -549,25 +569,23 @@ int main(void) {
     test_DestroyQueue();
     test_NULL();
 
-    printf("\n--- 多线程并发测试 ---\n");
+    printf("多线程并发测试\n");
     test_ConcurrentReadWrite();
 
-    printf("\n--- 压力测试 ---\n");
+    printf("压力测试\n");
     test_Stress();
 
-    printf("\n========================================\n");
-    printf("   结果: %d 通过, %d 失败  %s\n",
+
+    printf("结果: %d 通过, %d 失败  %s\n",
            g_pass, g_fail,
            g_fail > 0 ? "SOME FAILED" : "全部通过");
 
-    printf("\n--- 测试详细清单 ---\n");
+    printf("测试详细清单\n");
     for (int i = 0; i < g_test_count; i++) {
         printf("  [%s] %s\n",
                g_records[i].passed ? "PASS" : "FAIL",
                g_records[i].name);
     }
-    printf("========================================\n");
-
     if (g_fail > 0) {
         return 1;
     } else {
