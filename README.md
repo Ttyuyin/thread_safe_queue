@@ -45,8 +45,8 @@ DestroyQueue(&q);
 ## 测试
 
 ```bash
-gcc -o test pressure_test.c -lpthread
-./test
+gcc -o pressure_test pressure_test.c 
+./pressure_test
 ```
 
 测试覆盖：单线程功能测试、多线程读写并发测试、多生产者-消费者压力测试（默认 4 生产者 × 50 万，共 200 万次入队）。
